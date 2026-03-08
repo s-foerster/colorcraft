@@ -51,7 +51,13 @@ pip install -r requirements.txt
 ### API FastAPI pour Render
 
 Cette app peut maintenant etre deployee comme API sur Render avec `FastAPI`.
-L'endpoint principal accepte une image en entree et renvoie une archive ZIP contenant :
+Le flux est asynchrone :
+
+1. `POST /generate` retourne immediatement un `job_id`
+2. le client poll `GET /jobs/{job_id}`
+3. quand le statut vaut `completed`, le client telecharge le ZIP via `GET /jobs/{job_id}/download`
+
+Le ZIP contient :
 
 - `<nom>_combined.png`
 - `<nom>_preview.png`
@@ -70,7 +76,7 @@ uvicorn api:app --reload
 
 Puis ouvrir `http://127.0.0.1:8000/docs`.
 
-#### Tester l'endpoint
+#### Creer un job
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/generate" \
@@ -79,7 +85,32 @@ curl -X POST "http://127.0.0.1:8000/generate" \
   -F "colors=16" \
   -F "difficulty=5" \
   -F "symbols=numbers" \
-  --output mon_coloriage_outputs.zip
+  
+```
+
+Reponse typique :
+
+```json
+{
+  "job_id": "abc123...",
+  "status": "queued",
+  "status_url": "http://127.0.0.1:8000/jobs/abc123...",
+  "download_url": "http://127.0.0.1:8000/jobs/abc123.../download"
+}
+```
+
+#### Poller le statut
+
+```bash
+curl "http://127.0.0.1:8000/jobs/abc123..."
+```
+
+Statuts possibles : `queued`, `processing`, `completed`, `failed`.
+
+#### Telecharger le resultat
+
+```bash
+curl -L "http://127.0.0.1:8000/jobs/abc123.../download" --output mon_coloriage_outputs.zip
 ```
 
 Le ZIP contient les deux fichiers demandes : `_combined` et `_preview`.
